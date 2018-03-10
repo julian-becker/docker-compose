@@ -1,0 +1,88 @@
+version: '2'
+
+volumes:
+  pg-agent: {}
+  pg-backup: {}
+  tc_data: {}
+  tc_logs: {}
+  jira_home: {}
+  jira_install: {}
+  confluence_home: {}
+  confluence_install: {}
+  bitbucket_home: {}
+  bitbucket_install: {}
+
+networks:
+  ci-network:
+    driver: bridge
+
+services:
+  tc-server:
+    build: ./server
+    volumes:
+      - tc_data:/data/teamcity_server/datadir
+      - tc_logs:/opt/teamcity/logs
+    ports:
+      - 8111:8111
+    depends_on:
+      - postgres
+    networks:
+      - ci-network
+    restart: always
+
+  tc-agent:
+    image: jetbrains/teamcity-minimal-agent
+    environment:
+      SERVER_URL: http://tc-server:8111
+    networks:
+      - ci-network
+    restart: always
+
+  postgres:
+    build: ./postgres
+    volumes:
+      - pg-agent:/var/lib/postgresql/data
+      - pg-backup:/backups
+    env_file: .env
+    networks:
+      - ci-network
+    restart: always
+
+  confluence:
+    image: cptactionhank/atlassian-confluence:6.7.2
+    ports:
+     - 8090:8090
+    volumes:
+     - confluence_home:/var/atlassian/confluence
+     - confluence_install:/opt/atlassian/confluence
+    depends_on:
+     - postgres
+    networks:
+      - ci-network
+    restart: always
+
+  bitbucket:
+    image: cptactionhank/atlassian-bitbucket:4.0.2
+    ports:
+     - 7990:7990
+    volumes:
+     - bitbucket_home:/var/atlassian/bitbucket
+     - bitbucket_install:/opt/atlassian/bitbucket
+    depends_on:
+     - postgres
+    networks:
+      - ci-network
+    restart: always
+
+  jira:
+    image: cptactionhank/atlassian-jira-software:7.8.0
+    ports:
+     - 8080:8080
+    volumes:
+     - jira_home:/var/atlassian/jira
+     - jira_install:/opt/atlassian/jira
+    depends_on:
+     - postgres
+    networks:
+      - ci-network
+    restart: always
